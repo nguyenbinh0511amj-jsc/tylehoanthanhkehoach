@@ -1,4 +1,5 @@
 import "./globals.css";
+import Navbar from "./components/Navbar";
 
 export const metadata = {
   title: "Kế Hoạch Kiểm Tra - Quản Lý Chất Lượng",
@@ -14,7 +15,10 @@ export default function RootLayout({ children }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </head>
-      <body>{children}</body>
+      <body>
+        <Navbar />
+        {children}
+      </body>
     </html>
   );
 }
