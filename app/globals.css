@@ -1072,6 +1072,33 @@ body::before {
   padding: 14px;
 }
 
+.completion-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  padding: 2px 8px;
+  background: #f4f5fa;
+  border-radius: 4px;
+}
+
+.col-completed {
+  color: #059669 !important;
+}
+
+.col-not-completed {
+  color: #d97706 !important;
+}
+
+.no-data-tag {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  padding: 1px 6px;
+  background: #f4f5fa;
+  border-radius: 3px;
+  margin-left: 6px;
+  font-weight: 400;
+}
+
 /* ===== ANIMATIONS ===== */
 @keyframes fadeIn {
   from { opacity: 0; }

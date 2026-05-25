@@ -4,8 +4,8 @@ import { useMemo } from 'react';
 function getStatusClass(value) {
   if (!value || typeof value !== 'string') return '';
   const v = value.toLowerCase();
-  if (v.includes('đã chuyển') || v.includes('đã giao') || v.includes('hoàn thành') || v.includes('kết thúc')) return 'done';
-  if (v.includes('đang') || v.includes('rửa') || v.includes('tap') || v.includes('via')) return 'in-progress';
+  if (v.includes('hoàn thành') || v.includes('kết thúc')) return 'done';
+  if (v.includes('đã chuyển') || v.includes('đã giao') || v.includes('đang') || v.includes('rửa') || v.includes('tap') || v.includes('via')) return 'in-progress';
   if (v.includes('gấp') || v.includes('siêu gấp')) return 'urgent';
   return '';
 }

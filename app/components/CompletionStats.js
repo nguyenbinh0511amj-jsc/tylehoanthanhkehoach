@@ -3,52 +3,58 @@
 export default function CompletionStats({ sheets }) {
   if (!sheets || sheets.length === 0) return null;
 
-  // Extract completion stats from each sheet's summaryRow
+  // Calculate completion stats from each sheet's actual row data
   const stats = sheets.map((sheet) => {
-    const { headers, summaryRow, name, rowCount } = sheet;
-    
-    const getVal = (key) => {
-      const idx = headers.indexOf(key);
-      if (idx === -1 || !summaryRow || summaryRow[idx] === undefined || summaryRow[idx] === '') return null;
-      const v = parseFloat(summaryRow[idx]);
-      return isNaN(v) ? null : v;
-    };
+    const { headers, rows, name, rowCount } = sheet;
 
-    const sll = getVal('SLL');
-    const slThucTe = getVal('SL thực tế');
-    const tghd = getVal('TGHD');
-    const tgbv = getVal('TGBV');
+    // Find the index of "Tổng TGHT" column
+    const tghtIdx = headers.findIndex((h) => h === 'Tổng TGHT');
 
-    // Completion ratio: try last column or calculate from SL thực tế / SLL
-    let ratio = null;
-    if (summaryRow && summaryRow.length > 0) {
-      const lastVal = parseFloat(summaryRow[summaryRow.length - 1]);
-      if (!isNaN(lastVal) && lastVal > 0 && lastVal < 10) {
-        ratio = lastVal;
+    let completedCount = 0;
+    let totalRows = 0;
+
+    if (tghtIdx !== -1 && rows) {
+      // Filter non-empty rows
+      const validRows = rows.filter((row) =>
+        row.some((cell) => cell !== null && cell !== undefined && cell !== '')
+      );
+      totalRows = validRows.length;
+
+      // Count rows where "Tổng TGHT" column is "Hoàn thành"
+      completedCount = validRows.filter((row) => {
+        const val = row[tghtIdx];
+        if (!val || typeof val !== 'string') return false;
+        return val.trim().toLowerCase() === 'hoàn thành';
+      }).length;
+    } else {
+      // If no "Tổng TGHT" column, just count rows
+      if (rows) {
+        totalRows = rows.filter((row) =>
+          row.some((cell) => cell !== null && cell !== undefined && cell !== '')
+        ).length;
       }
     }
-    if (ratio === null && sll && slThucTe && sll > 0) {
-      ratio = slThucTe / sll;
-    }
+
+    const ratio = totalRows > 0 ? completedCount / totalRows : null;
+    const percent = ratio !== null ? (ratio * 100).toFixed(1) : null;
 
     return {
       name,
       rowCount,
-      sll,
-      slThucTe,
-      tghd,
-      tgbv,
+      totalRows,
+      completedCount,
+      notCompleted: totalRows - completedCount,
       ratio,
-      percent: ratio !== null ? (ratio * 100).toFixed(1) : null,
+      percent,
+      hasTGHT: tghtIdx !== -1,
     };
   });
 
   // Overall totals
-  const totalSLL = stats.reduce((sum, s) => sum + (s.sll || 0), 0);
-  const totalSLTT = stats.reduce((sum, s) => sum + (s.slThucTe || 0), 0);
-  const totalTGHD = stats.reduce((sum, s) => sum + (s.tghd || 0), 0);
-  const totalTGBV = stats.reduce((sum, s) => sum + (s.tgbv || 0), 0);
-  const overallRatio = totalSLL > 0 ? ((totalSLTT / totalSLL) * 100).toFixed(1) : null;
+  const totalAllRows = stats.reduce((sum, s) => sum + s.totalRows, 0);
+  const totalCompleted = stats.reduce((sum, s) => sum + s.completedCount, 0);
+  const totalNotCompleted = totalAllRows - totalCompleted;
+  const overallRatio = totalAllRows > 0 ? ((totalCompleted / totalAllRows) * 100).toFixed(1) : null;
 
   const getBarColor = (percent) => {
     if (percent === null) return 'var(--text-muted)';
@@ -77,17 +83,13 @@ export default function CompletionStats({ sheets }) {
     return 'status-danger';
   };
 
-  const fmt = (v) => {
-    if (v === null || v === undefined) return '—';
-    return v % 1 === 0 ? v.toLocaleString() : v.toLocaleString(undefined, { maximumFractionDigits: 1 });
-  };
-
   return (
     <div className="completion-stats">
       <div className="completion-header">
         <div className="completion-title">
           <span className="completion-icon">📊</span>
           <h2>Thống kê tỷ lệ hoàn thành</h2>
+          <span className="completion-note">Dựa theo cột "Tổng TGHT"</span>
         </div>
         {overallRatio !== null && (
           <div className="completion-overall">
@@ -104,11 +106,9 @@ export default function CompletionStats({ sheets }) {
           <thead>
             <tr>
               <th>Sheet</th>
-              <th className="col-number">Số dòng</th>
-              <th className="col-number">SL Lệnh</th>
-              <th className="col-number">SL Thực tế</th>
-              <th className="col-number">TG Hoạt động</th>
-              <th className="col-number">TG Bảo vệ</th>
+              <th className="col-number">Tổng dòng</th>
+              <th className="col-number">Hoàn thành</th>
+              <th className="col-number">Chưa xong</th>
               <th className="col-progress">Tỷ lệ HT</th>
               <th className="col-status">Trạng thái</th>
             </tr>
@@ -119,12 +119,11 @@ export default function CompletionStats({ sheets }) {
                 <td className="cell-name">
                   <span className="sheet-dot" style={{ background: getBarColor(s.percent) }}></span>
                   {s.name}
+                  {!s.hasTGHT && <span className="no-data-tag">Không có cột TGHT</span>}
                 </td>
-                <td className="col-number">{s.rowCount.toLocaleString()}</td>
-                <td className="col-number">{fmt(s.sll)}</td>
-                <td className="col-number">{fmt(s.slThucTe)}</td>
-                <td className="col-number">{fmt(s.tghd)}</td>
-                <td className="col-number">{fmt(s.tgbv)}</td>
+                <td className="col-number">{s.totalRows.toLocaleString()}</td>
+                <td className="col-number col-completed">{s.completedCount.toLocaleString()}</td>
+                <td className="col-number col-not-completed">{s.notCompleted.toLocaleString()}</td>
                 <td className="col-progress">
                   <div className="progress-cell">
                     <div className="progress-bar-bg">
@@ -152,11 +151,9 @@ export default function CompletionStats({ sheets }) {
           <tfoot>
             <tr className="total-row">
               <td className="cell-name"><strong>Tổng cộng</strong></td>
-              <td className="col-number"><strong>{stats.reduce((s, r) => s + r.rowCount, 0).toLocaleString()}</strong></td>
-              <td className="col-number"><strong>{totalSLL > 0 ? fmt(totalSLL) : '—'}</strong></td>
-              <td className="col-number"><strong>{totalSLTT > 0 ? fmt(totalSLTT) : '—'}</strong></td>
-              <td className="col-number"><strong>{totalTGHD > 0 ? fmt(totalTGHD) : '—'}</strong></td>
-              <td className="col-number"><strong>{totalTGBV > 0 ? fmt(totalTGBV) : '—'}</strong></td>
+              <td className="col-number"><strong>{totalAllRows.toLocaleString()}</strong></td>
+              <td className="col-number col-completed"><strong>{totalCompleted.toLocaleString()}</strong></td>
+              <td className="col-number col-not-completed"><strong>{totalNotCompleted.toLocaleString()}</strong></td>
               <td className="col-progress">
                 <div className="progress-cell">
                   <div className="progress-bar-bg">
