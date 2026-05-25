@@ -1,65 +1,229 @@
-import Image from "next/image";
+'use client';
+import { useState, useCallback, useEffect } from 'react';
+import * as XLSX from 'xlsx';
+import FileUploader from './components/FileUploader';
+import SheetTabs from './components/SheetTabs';
+import SheetSummary from './components/SheetSummary';
+import DataTable from './components/DataTable';
 
 export default function Home() {
+  const [sheets, setSheets] = useState([]);
+  const [activeSheet, setActiveSheet] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [savedFileName, setSavedFileName] = useState('');
+
+  // Load dữ liệu từ MongoDB khi mở trang
+  useEffect(() => {
+    loadFromDB();
+  }, []);
+
+  const loadFromDB = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/sheets');
+      const json = await res.json();
+      if (json.success && json.data.length > 0) {
+        const loadedSheets = json.data.map((doc) => ({
+          name: doc.sheetName,
+          headers: doc.headers,
+          summaryRow: doc.summaryRow,
+          rows: doc.rows,
+          rowCount: doc.rowCount,
+        }));
+        setSheets(loadedSheets);
+        setActiveSheet(loadedSheets[0].name);
+        setSavedFileName(json.data[0].fileName);
+        showMessage('success', `Đã tải ${loadedSheets.length} sheets từ cơ sở dữ liệu`);
+      }
+    } catch (err) {
+      console.error('Load DB error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveToDB = async (fileName, parsedSheets) => {
+    try {
+      setIsSaving(true);
+      showMessage('info', 'Đang lưu vào MongoDB...');
+
+      const res = await fetch('/api/sheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName,
+          sheets: parsedSheets.map((s) => ({
+            name: s.name,
+            headers: s.headers,
+            summaryRow: s.summaryRow,
+            rows: s.rows,
+            rowCount: s.rowCount,
+          })),
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setSavedFileName(fileName);
+        showMessage('success', `✅ ${json.message}`);
+      } else {
+        showMessage('error', `❌ Lỗi: ${json.error}`);
+      }
+    } catch (err) {
+      showMessage('error', `❌ Lỗi kết nối: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Bạn có chắc muốn xóa toàn bộ dữ liệu đã lưu?')) return;
+
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/sheets', { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        setSheets([]);
+        setActiveSheet('');
+        setSavedFileName('');
+        showMessage('success', `🗑️ ${json.message}`);
+      }
+    } catch (err) {
+      showMessage('error', `❌ Lỗi: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const showMessage = (type, text) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 4000);
+  };
+
+  const handleFileLoaded = useCallback((file) => {
+    setIsLoading(true);
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: 'array', cellDates: true });
+
+        const parsedSheets = wb.SheetNames.map((name) => {
+          const ws = wb.Sheets[name];
+          const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+          let headers = [];
+          let summaryRow = [];
+          let dataRows = [];
+
+          if (jsonData.length > 1) {
+            summaryRow = jsonData[0] || [];
+            headers = jsonData[1]
+              ? jsonData[1].map((h) => (h !== undefined && h !== null ? String(h) : ''))
+              : [];
+            dataRows = jsonData.slice(2);
+          } else if (jsonData.length === 1) {
+            headers = jsonData[0]
+              ? jsonData[0].map((h) => (h !== undefined && h !== null ? String(h) : ''))
+              : [];
+          }
+
+          // Filter empty rows and limit to 2000
+          const filteredRows = dataRows.filter((row) =>
+            row.some((cell) => cell !== null && cell !== undefined && cell !== '')
+          );
+
+          return {
+            name,
+            headers,
+            summaryRow,
+            rows: filteredRows.slice(0, 2000),
+            rowCount: filteredRows.length,
+          };
+        });
+
+        setSheets(parsedSheets);
+        setActiveSheet(parsedSheets.length > 0 ? parsedSheets[0].name : '');
+        setIsLoading(false);
+
+        // Auto-save to MongoDB
+        saveToDB(file.name, parsedSheets);
+      } catch (err) {
+        console.error('Error parsing Excel:', err);
+        showMessage('error', 'Lỗi khi đọc file Excel. Vui lòng kiểm tra file.');
+        setIsLoading(false);
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  }, []);
+
+  const activeSheetData = sheets.find((s) => s.name === activeSheet);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="app-container">
+      <header className="app-header">
+        <h1>📋 Kế Hoạch Kiểm Tra</h1>
+        <p>Import file Excel để xem và quản lý kế hoạch nhóm Kiểm tra</p>
+      </header>
+
+      {/* Message toast */}
+      {message && (
+        <div className={`toast toast-${message.type}`}>
+          {message.text}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      )}
+
+      <FileUploader onFileLoaded={handleFileLoaded} isLoading={isLoading || isSaving} />
+
+      {/* Action bar */}
+      {sheets.length > 0 && (
+        <div className="action-bar">
+          <div className="action-info">
+            {savedFileName && (
+              <span className="saved-badge">
+                💾 <strong>{savedFileName}</strong> — đã lưu MongoDB
+              </span>
+            )}
+            {isSaving && <span className="saving-badge">⏳ Đang lưu...</span>}
+          </div>
+          <div className="action-buttons">
+            <button className="btn-delete" onClick={handleDelete}>
+              🗑️ Xóa dữ liệu
+            </button>
+          </div>
         </div>
-      </main>
+      )}
+
+      {isLoading && !sheets.length && (
+        <div className="loading-overlay">
+          <div className="spinner"></div>
+          <p>Đang tải dữ liệu...</p>
+        </div>
+      )}
+
+      {!isLoading && sheets.length > 0 && (
+        <div className="sheet-tabs-container">
+          <SheetTabs sheets={sheets} activeSheet={activeSheet} onSelect={setActiveSheet} />
+          {activeSheetData && (
+            <>
+              <SheetSummary
+                summaryRow={activeSheetData.summaryRow}
+                headers={activeSheetData.headers}
+              />
+              <DataTable
+                headers={activeSheetData.headers}
+                rows={activeSheetData.rows}
+                sheetName={activeSheetData.name}
+              />
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
