@@ -4,6 +4,7 @@ import Link from 'next/link';
 import SheetTabs from './components/SheetTabs';
 import SheetSummary from './components/SheetSummary';
 import DataTable from './components/DataTable';
+import CompletionStats from './components/CompletionStats';
 
 // Chỉ hiển thị các sheet này
 const VISIBLE_SHEETS = [
@@ -98,6 +99,8 @@ export default function Home() {
               📥 Import lại
             </Link>
           </div>
+
+          <CompletionStats sheets={sheets} />
 
           <div className="sheet-tabs-container">
             <SheetTabs sheets={sheets} activeSheet={activeSheet} onSelect={setActiveSheet} />
