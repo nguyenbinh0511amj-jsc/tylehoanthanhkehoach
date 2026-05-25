@@ -5,6 +5,15 @@ import SheetTabs from './components/SheetTabs';
 import SheetSummary from './components/SheetSummary';
 import DataTable from './components/DataTable';
 
+// Chỉ hiển thị các sheet này
+const VISIBLE_SHEETS = [
+  'Bàn gấp+ lề',
+  'hàng đánh bóng + đo quang',
+  'Hàng loạt (bàn 1)',
+  'Ca đêm',
+  'Ca đêm (2)',
+];
+
 export default function Home() {
   const [sheets, setSheets] = useState([]);
   const [activeSheet, setActiveSheet] = useState('');
@@ -22,15 +31,19 @@ export default function Home() {
       const res = await fetch('/api/sheets');
       const json = await res.json();
       if (json.success && json.data.length > 0) {
-        const loadedSheets = json.data.map((doc) => ({
+        const allSheets = json.data.map((doc) => ({
           name: doc.sheetName,
           headers: doc.headers,
           summaryRow: doc.summaryRow,
           rows: doc.rows,
           rowCount: doc.rowCount,
         }));
-        setSheets(loadedSheets);
-        setActiveSheet(loadedSheets[0].name);
+        // Lọc chỉ hiển thị các sheet được chỉ định
+        const filteredSheets = allSheets.filter((s) => VISIBLE_SHEETS.includes(s.name));
+        setSheets(filteredSheets);
+        if (filteredSheets.length > 0) {
+          setActiveSheet(filteredSheets[0].name);
+        }
         setSavedFileName(json.data[0].fileName);
       }
     } catch (err) {
