@@ -7,7 +7,7 @@ import DataTable from './components/DataTable';
 
 // Chỉ hiển thị các sheet này
 const VISIBLE_SHEETS = [
-  'Bàn gấp+ lề',
+  'Bàn gấp+ lẻ',
   'hàng đánh bóng + đo quang',
   'Hàng loạt (bàn 1)',
   'Ca đêm',
@@ -38,8 +38,10 @@ export default function Home() {
           rows: doc.rows,
           rowCount: doc.rowCount,
         }));
-        // Lọc chỉ hiển thị các sheet được chỉ định
-        const filteredSheets = allSheets.filter((s) => VISIBLE_SHEETS.includes(s.name));
+        // Lọc và sắp xếp theo đúng thứ tự VISIBLE_SHEETS
+        const filteredSheets = VISIBLE_SHEETS
+          .map((name) => allSheets.find((s) => s.name === name))
+          .filter(Boolean);
         setSheets(filteredSheets);
         if (filteredSheets.length > 0) {
           setActiveSheet(filteredSheets[0].name);
@@ -57,10 +59,6 @@ export default function Home() {
 
   return (
     <div className="app-container">
-      <header className="app-header">
-        <h1>📊 Dữ Liệu Kế Hoạch Kiểm Tra</h1>
-        <p>Xem và quản lý dữ liệu kế hoạch nhóm Kiểm tra</p>
-      </header>
 
       {/* Loading */}
       {isLoading && (
