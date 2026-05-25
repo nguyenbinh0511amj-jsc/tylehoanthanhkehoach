@@ -7,31 +7,29 @@ export default function CompletionStats({ sheets }) {
   const stats = sheets.map((sheet) => {
     const { headers, rows, name, rowCount } = sheet;
 
-    // Find the index of "Tổng TGHT" column
+    // Find the index of "Tổng TGHT" and "OrderKD" columns
     const tghtIdx = headers.findIndex((h) => h === 'Tổng TGHT');
+    const orderKDIdx = headers.findIndex((h) => h === 'OrderKD');
 
     let completedCount = 0;
     let totalRows = 0;
 
-    if (tghtIdx !== -1 && rows) {
-      // Filter non-empty rows
-      const validRows = rows.filter((row) =>
-        row.some((cell) => cell !== null && cell !== undefined && cell !== '')
-      );
+    if (rows) {
+      // Chỉ đếm dòng có OrderKD có dữ liệu
+      const validRows = rows.filter((row) => {
+        if (orderKDIdx === -1) return row.some((cell) => cell !== null && cell !== undefined && cell !== '');
+        const orderKD = row[orderKDIdx];
+        return orderKD !== null && orderKD !== undefined && orderKD !== '';
+      });
       totalRows = validRows.length;
 
       // Count rows where "Tổng TGHT" column is "Hoàn thành"
-      completedCount = validRows.filter((row) => {
-        const val = row[tghtIdx];
-        if (!val || typeof val !== 'string') return false;
-        return val.trim().toLowerCase() === 'hoàn thành';
-      }).length;
-    } else {
-      // If no "Tổng TGHT" column, just count rows
-      if (rows) {
-        totalRows = rows.filter((row) =>
-          row.some((cell) => cell !== null && cell !== undefined && cell !== '')
-        ).length;
+      if (tghtIdx !== -1) {
+        completedCount = validRows.filter((row) => {
+          const val = row[tghtIdx];
+          if (!val || typeof val !== 'string') return false;
+          return val.trim().toLowerCase() === 'hoàn thành';
+        }).length;
       }
     }
 
