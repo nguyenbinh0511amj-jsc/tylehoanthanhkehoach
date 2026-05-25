@@ -20,6 +20,8 @@ export default function Home() {
   const [activeSheet, setActiveSheet] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [savedFileName, setSavedFileName] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [toast, setToast] = useState(null);
 
   // Load dữ liệu từ MongoDB khi mở trang
   useEffect(() => {
@@ -56,10 +58,38 @@ export default function Home() {
     }
   };
 
+  const handleSync = async () => {
+    try {
+      setIsSyncing(true);
+      setToast({ type: 'info', text: '⏳ Đang đồng bộ trạng thái từ ke_hoach_pkt...' });
+      const res = await fetch('/api/sync', { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        setToast({ type: 'success', text: `✅ ${json.message}` });
+        // Reload dữ liệu mới
+        await loadFromDB();
+      } else {
+        setToast({ type: 'error', text: `❌ ${json.error}` });
+      }
+    } catch (err) {
+      setToast({ type: 'error', text: `❌ Lỗi: ${err.message}` });
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setToast(null), 5000);
+    }
+  };
+
   const activeSheetData = sheets.find((s) => s.name === activeSheet);
 
   return (
     <div className="app-container">
+
+      {/* Toast */}
+      {toast && (
+        <div className={`toast toast-${toast.type}`}>
+          {toast.text}
+        </div>
+      )}
 
       {/* Loading */}
       {isLoading && (
@@ -95,9 +125,18 @@ export default function Home() {
                 {sheets.reduce((sum, s) => sum + s.rowCount, 0).toLocaleString()} dòng
               </span>
             </div>
-            <Link href="/import" className="btn-reimport">
-              📥 Import lại
-            </Link>
+            <div className="data-info-actions">
+              <button
+                className="btn-sync"
+                onClick={handleSync}
+                disabled={isSyncing}
+              >
+                {isSyncing ? '⏳ Đang đồng bộ...' : '🔄 Đồng bộ trạng thái'}
+              </button>
+              <Link href="/import" className="btn-reimport">
+                📥 Import lại
+              </Link>
+            </div>
           </div>
 
           <CompletionStats sheets={sheets} />
