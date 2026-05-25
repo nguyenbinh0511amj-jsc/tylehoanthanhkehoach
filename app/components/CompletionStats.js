@@ -108,7 +108,7 @@ export default function CompletionStats({ sheets }) {
               <th className="col-number">Hoàn thành</th>
               <th className="col-number">Chưa xong</th>
               <th className="col-progress">Tỷ lệ HT</th>
-              <th className="col-status">Trạng thái</th>
+
             </tr>
           </thead>
           <tbody>
@@ -138,11 +138,7 @@ export default function CompletionStats({ sheets }) {
                     </span>
                   </div>
                 </td>
-                <td className="col-status">
-                  <span className={`status-badge ${getStatusClass(s.percent)}`}>
-                    {getStatusLabel(s.percent)}
-                  </span>
-                </td>
+
               </tr>
             ))}
           </tbody>
@@ -168,11 +164,7 @@ export default function CompletionStats({ sheets }) {
                   </span>
                 </div>
               </td>
-              <td className="col-status">
-                <span className={`status-badge ${getStatusClass(overallRatio)}`}>
-                  {getStatusLabel(overallRatio)}
-                </span>
-              </td>
+
             </tr>
           </tfoot>
         </table>
