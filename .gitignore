@@ -43,3 +43,5 @@ next-env.d.ts
 # excel data files
 *.xlsx
 *.xls
+
+.vercel
